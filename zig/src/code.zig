@@ -8,22 +8,38 @@ const math = std.math;
 const hextet = 0b111111;
 const octet = 0b11111111;
 
+// TODO: looks like fmt.hexToBytes & fmt.bytesToHex takes care of this. They come with Zig 0.11.0
 //
 // HEX
 //
 
+// TODO: add tests
 // converts a hex-encoded string into a plain string
-pub fn decodeHex(ally: Allocator, string: []const u8) ![]const u8 {
-    assert((string.len % 2) == 0);
+pub fn decodeHex(ally: Allocator, in: []const u8) ![]const u8 {
+    assert((in.len % 2) == 0);
 
-    const buf = try ally.alloc(u8, string.len / 2);
+    const out = try ally.alloc(u8, in.len / 2);
 
     var head: usize = 0;
-    while (head < string.len) : (head += 2) {
-        buf[head / 2] = try fmt.parseInt(u8, string[head .. head + 2], 16);
+    while (head < in.len) : (head += 2) {
+        out[head / 2] = try fmt.parseInt(u8, in[head .. head + 2], 16);
     }
 
-    return buf;
+    return out;
+}
+
+// converts a plain string to a hex-encoded string
+pub fn encodeHex(ally: Allocator, in: []const u8) ![]const u8 {
+    const out = try ally.alloc(u8, in.len * 2);
+
+    const hex_charset = "0123456789abcdef";
+
+    for (in) |char, i| {
+        out[i * 2] = hex_charset[char >> 4];
+        out[i * 2 + 1] = hex_charset[char & 0b1111];
+    }
+
+    return out;
 }
 
 //
@@ -138,10 +154,11 @@ pub fn encodeBase64(ally: Allocator, in: []const u8) ![]u8 {
     return out;
 }
 
-test "padded strings" {
+test "base64: padded strings" {
     // TODO: use debugging allocator
     const ally = std.heap.page_allocator;
 
+    // TODO: decode the encoding output and cmp to original
     assert(eql(u8, try encodeBase64(ally, ""), ""));
     assert(eql(u8, try encodeBase64(ally, "f"), "Zg=="));
     assert(eql(u8, try encodeBase64(ally, "fo"), "Zm8="));
@@ -157,4 +174,24 @@ test "padded strings" {
     assert(eql(u8, try decodeBase64(ally, "Zm9vYg=="), "foob"));
     assert(eql(u8, try decodeBase64(ally, "Zm9vYmE="), "fooba"));
     assert(eql(u8, try decodeBase64(ally, "Zm9vYmFy"), "foobar"));
+}
+
+test "hex" {
+    const ally = std.heap.page_allocator;
+
+    assert(eql(u8, try encodeHex(ally, ""), ""));
+    assert(eql(u8, try encodeHex(ally, "f"), "66"));
+    assert(eql(u8, try encodeHex(ally, "fo"), "666f"));
+    assert(eql(u8, try encodeHex(ally, "foo"), "666f6f"));
+    assert(eql(u8, try encodeHex(ally, "foob"), "666f6f62"));
+    assert(eql(u8, try encodeHex(ally, "fooba"), "666f6f6261"));
+    assert(eql(u8, try encodeHex(ally, "foobar"), "666f6f626172"));
+
+    assert(eql(u8, try decodeHex(ally, ""), ""));
+    assert(eql(u8, try decodeHex(ally, "66"), "f"));
+    assert(eql(u8, try decodeHex(ally, "666f"), "fo"));
+    assert(eql(u8, try decodeHex(ally, "666f6f"), "foo"));
+    assert(eql(u8, try decodeHex(ally, "666f6f62"), "foob"));
+    assert(eql(u8, try decodeHex(ally, "666f6f6261"), "fooba"));
+    assert(eql(u8, try decodeHex(ally, "666f6f626172"), "foobar"));
 }
