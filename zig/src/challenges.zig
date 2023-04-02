@@ -3,6 +3,7 @@ const print = std.debug.print;
 const assert = std.debug.assert;
 const eql = std.mem.eql;
 const code = @import("code.zig");
+const crypto = @import("crypto.zig");
 
 pub fn main() !void {}
 
@@ -29,4 +30,15 @@ test "challenge 2" {
     assert(eql(u8, try code.encodeHex(ally, result), expected) == true);
 
     ally.free(result);
+}
+
+test "challenge 3" {
+    const ally = std.heap.page_allocator;
+
+    const ciphertext: []const u8 = try code.decodeHex(ally, "1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736");
+
+    const expected = "Cooking MC's like a pound of bacon";
+    const key = try crypto.brute_force_single_byte_xor(ally, ciphertext);
+    const plaintext = try crypto.single_byte_xor(ally, ciphertext, key);
+    assert(eql(u8, plaintext, expected) == true);
 }
